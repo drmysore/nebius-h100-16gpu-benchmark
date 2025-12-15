@@ -1,0 +1,180 @@
+# k8s/benchmark-job.yaml
+# Kubernetes Job for GPU Cluster Acceptance Testing on Nebius
+#
+# Deploy with:
+#   kubectl apply -f benchmark-job.yaml
+#
+# View results:
+#   kubectl logs -f job/gpu-benchmark
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gpu-benchmark
+  labels:
+    app: gpu-benchmark
+    purpose: acceptance-testing
+spec:
+  ttlSecondsAfterFinished: 3600  # Auto-delete after 1 hour
+  backoffLimit: 0  # Don't retry on failure
+  template:
+    metadata:
+      labels:
+        app: gpu-benchmark
+    spec:
+      restartPolicy: Never
+      
+      # Node selection for GPU nodes
+      nodeSelector:
+        nvidia.com/gpu: "present"
+      
+      # Tolerations for GPU taints
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Exists"
+          effect: "NoSchedule"
+      
+      containers:
+        - name: benchmark
+          image: ghcr.io/your-org/gpu-cluster-test:latest
+          
+          # Run full benchmark suite
+          args:
+            - "--mode"
+            - "full"
+            - "--output"
+            - "/results/benchmark_results.json"
+          
+          resources:
+            limits:
+              nvidia.com/gpu: 8  # Request all 8 GPUs
+              memory: "1400Gi"
+              cpu: "64"
+            requests:
+              nvidia.com/gpu: 8
+              memory: "1000Gi"
+              cpu: "32"
+          
+          # Environment variables
+          env:
+            - name: NCCL_DEBUG
+              value: "WARN"
+            - name: CUDA_DEVICE_ORDER
+              value: "PCI_BUS_ID"
+            - name: BENCHMARK_ITERATIONS
+              value: "100"
+          
+          # Volume mounts
+          volumeMounts:
+            - name: results
+              mountPath: /results
+            - name: shm
+              mountPath: /dev/shm
+      
+      volumes:
+        - name: results
+          emptyDir: {}
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: "64Gi"
+
+---
+# Multi-node benchmark job (2 nodes x 8 GPUs)
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gpu-benchmark-multinode
+  labels:
+    app: gpu-benchmark
+    purpose: acceptance-testing
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 0
+  completions: 2
+  parallelism: 2
+  completionMode: Indexed
+  template:
+    metadata:
+      labels:
+        app: gpu-benchmark-multinode
+    spec:
+      restartPolicy: Never
+      
+      nodeSelector:
+        nvidia.com/gpu: "present"
+      
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Exists"
+          effect: "NoSchedule"
+      
+      # Use pod anti-affinity to spread across nodes
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: gpu-benchmark-multinode
+              topologyKey: "kubernetes.io/hostname"
+      
+      containers:
+        - name: benchmark
+          image: ghcr.io/your-org/gpu-cluster-test:latest
+          
+          command:
+            - "torchrun"
+            - "--nnodes=2"
+            - "--nproc_per_node=8"
+            - "--rdzv_id=benchmark"
+            - "--rdzv_backend=c10d"
+            - "--rdzv_endpoint=$(MASTER_ADDR):29500"
+            - "/app/scripts/benchmark.py"
+            - "--mode"
+            - "distributed"
+          
+          resources:
+            limits:
+              nvidia.com/gpu: 8
+              memory: "1400Gi"
+              cpu: "64"
+            requests:
+              nvidia.com/gpu: 8
+              memory: "1000Gi"
+              cpu: "32"
+          
+          env:
+            - name: NCCL_DEBUG
+              value: "INFO"
+            - name: MASTER_ADDR
+              value: "gpu-benchmark-multinode-0.gpu-benchmark-multinode"
+            - name: MASTER_PORT
+              value: "29500"
+          
+          volumeMounts:
+            - name: shm
+              mountPath: /dev/shm
+          
+          ports:
+            - containerPort: 29500
+              name: rdzv
+      
+      volumes:
+        - name: shm
+          emptyDir:
+            medium: Memory
+            sizeLimit: "64Gi"
+
+---
+# Headless service for multi-node communication
+apiVersion: v1
+kind: Service
+metadata:
+  name: gpu-benchmark-multinode
+spec:
+  clusterIP: None
+  selector:
+    app: gpu-benchmark-multinode
+  ports:
+    - port: 29500
+      name: rdzv

@@ -1,0 +1,64 @@
+# terraform.tfvars.example - Example configuration for Nebius deployment
+# Copy this to terraform.tfvars and fill in your values
+
+# =============================================================================
+# Required: Project Configuration
+# =============================================================================
+
+# Your Nebius Folder ID (get from: nebius resource-manager folder list)
+folder_id = "your-folder-id-here"
+
+# Region (eu-north1 is primary Nebius region in Finland)
+region = "eu-north1"
+
+# =============================================================================
+# Cluster Configuration
+# =============================================================================
+
+# Name for your Slurm cluster
+slurm_cluster_name = "llm-finetune-poc"
+
+# Number of GPU worker nodes (2 × 8 H100 = 16 GPUs for PoC)
+slurm_worker_count = 2
+
+# GPU worker preset - H100 SXM with 8 GPUs per node
+slurm_worker_preset = "gpu-h100-sxm_8gpu-128vcpu-1600gb"
+
+# =============================================================================
+# Storage Configuration (as per PoC requirements)
+# =============================================================================
+
+# Shared filesystem size in GB (2TB for models/checkpoints)
+jail_size = 2048
+
+# Network disk size per node in GB (2TB for datasets)
+network_disk_size = 2048
+
+# =============================================================================
+# Network Configuration
+# =============================================================================
+
+vpc_subnet_cidr = "10.128.0.0/16"
+enable_infiniband = true
+
+# =============================================================================
+# Monitoring
+# =============================================================================
+
+enable_monitoring = true
+
+# Weights & Biases (optional - set to true and provide key if using)
+enable_wandb = false
+# wandb_api_key = "your-wandb-api-key"
+
+# =============================================================================
+# Tags
+# =============================================================================
+
+environment = "poc"
+
+additional_labels = {
+  customer = "poc-customer"
+  project  = "function-calling-finetune"
+  owner    = "ml-team"
+}

@@ -1,6 +1,6 @@
-# Nebius H100 16-GPU Multi-Node Benchmark Results
+# Nebius H100 16-GPU Multi-Node Benchmark
 
-This repository contains GPU cluster acceptance testing results for a multi-node configuration with 16x NVIDIA H100 80GB GPUs (2 nodes) on Nebius AI Cloud.
+GPU cluster testing and LLM fine-tuning on a multi-node 16x NVIDIA H100 80GB configuration (2 nodes) on Nebius AI Cloud.
 
 ## Cluster Configuration
 
@@ -16,15 +16,98 @@ This repository contains GPU cluster acceptance testing results for a multi-node
 | PyTorch | 2.3.0+cu121 |
 | NCCL | 2.20.5 |
 
-## Benchmark Results Summary
+## Repository Structure
+
+```
+.
+├── exercise1/                    # LLM Fine-Tuning for Function Calling
+│   ├── scripts/
+│   │   ├── train_function_calling.py
+│   │   ├── preprocess_data.py
+│   │   ├── evaluate.py
+│   │   └── train_job.sbatch
+│   ├── configs/
+│   │   ├── training_config.yaml
+│   │   └── ds_config_zero3.json
+│   └── terraform/
+│       ├── main.tf
+│       ├── variables.tf
+│       └── terraform.tfvars.example
+│
+├── exercise2/                    # GPU Cluster Acceptance Testing
+│   ├── scripts/
+│   │   └── benchmark.py
+│   ├── configs/
+│   │   └── benchmark_config.yaml
+│   ├── results/
+│   │   └── benchmark_16gpu.json
+│   ├── tests/
+│   │   └── test_benchmark.py
+│   ├── k8s/
+│   │   └── benchmark-job.yaml
+│   ├── .github/workflows/
+│   │   └── ci.yml
+│   └── Dockerfile
+│
+└── README.md
+```
+
+## Exercise 1: LLM Fine-Tuning for Function Calling
+
+Fine-tuning Qwen2-7B on the Glaive function calling dataset using LoRA with multi-node distributed training.
+
+### Model Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| Base Model | Qwen/Qwen2-7B-Instruct |
+| Parameters | 7.7B total, 161M trainable (LoRA) |
+| LoRA Rank | 64 |
+| LoRA Alpha | 128 |
+| Precision | BF16 |
+
+### Training Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| Batch Size | 2 per GPU |
+| Gradient Accumulation | 4 steps |
+| Effective Batch Size | 128 (16 GPUs) |
+| Learning Rate | 2e-5 |
+| Scheduler | Cosine |
+| Max Sequence Length | 4096 |
+
+### Running Multi-Node Training
+
+On Node 0 (master):
+
+```bash
+cd exercise1
+torchrun --nnodes=2 --nproc_per_node=8 --node_rank=0 \
+  --master_addr=10.2.0.129 --master_port=29500 \
+  scripts/train_function_calling.py --config configs/training_config.yaml
+```
+
+On Node 1 (worker):
+
+```bash
+cd exercise1
+torchrun --nnodes=2 --nproc_per_node=8 --node_rank=1 \
+  --master_addr=10.2.0.129 --master_port=29500 \
+  scripts/train_function_calling.py --config configs/training_config.yaml
+```
+
+## Exercise 2: GPU Cluster Acceptance Testing
+
+Benchmark results for validating multi-node GPU cluster performance.
+
+### Benchmark Results Summary
 
 | Test | Result | Expected | Status |
 |------|--------|----------|--------|
 | Multi-Node NCCL AllReduce | 434.99 GB/s | >350 GB/s | PASS |
 | Distributed Training | 137,162 tokens/s | >500/GPU | PASS |
 | World Size | 16 processes | 16 | PASS |
-
-## Detailed Results
 
 ### NCCL AllReduce Bandwidth (16 GPUs across 2 nodes)
 
@@ -46,9 +129,9 @@ This repository contains GPU cluster acceptance testing results for a multi-node
 | Total Throughput | 137,162.0 tokens/second |
 | Per-GPU Throughput | 8,572.6 tokens/second |
 
-## Multi-Node Configuration
+### Multi-Node Configuration
 
-### Node 0 (Master)
+Node 0 (Master):
 
 | Setting | Value |
 |---------|-------|
@@ -57,7 +140,7 @@ This repository contains GPU cluster acceptance testing results for a multi-node
 | Private IP | 10.2.0.129 |
 | Ranks | 0-7 |
 
-### Node 1 (Worker)
+Node 1 (Worker):
 
 | Setting | Value |
 |---------|-------|
@@ -66,19 +149,21 @@ This repository contains GPU cluster acceptance testing results for a multi-node
 | Private IP | 10.2.0.0 |
 | Ranks | 8-15 |
 
-## Running the Multi-Node Benchmark
+### Running Multi-Node Benchmarks
 
 On Node 0 (master):
 
 ```bash
+cd exercise2
 torchrun --nnodes=2 --nproc_per_node=8 --node_rank=0 \
   --master_addr=10.2.0.129 --master_port=29500 \
   scripts/benchmark.py --mode distributed
 ```
 
-On Node 1 (worker), run simultaneously:
+On Node 1 (worker):
 
 ```bash
+cd exercise2
 torchrun --nnodes=2 --nproc_per_node=8 --node_rank=1 \
   --master_addr=10.2.0.129 --master_port=29500 \
   scripts/benchmark.py --mode distributed
@@ -93,18 +178,11 @@ torchrun --nnodes=2 --nproc_per_node=8 --node_rank=1 \
 
 The multi-node configuration maintains excellent interconnect bandwidth with only 2% overhead when scaling from NVLink to InfiniBand.
 
-## Repository Contents
-
-| File | Description |
-|------|-------------|
-| scripts/benchmark.py | Main benchmark script |
-| configs/benchmark_config.yaml | Benchmark configuration |
-| results/benchmark_16gpu.json | Full benchmark results |
-
 ## Infrastructure
 
 | Setting | Value |
 |---------|-------|
+| Cloud Provider | Nebius AI Cloud |
 | Platform | gpu-h100-sxm |
 | Preset | 8gpu-128vcpu-1600gb |
 | GPU Cluster ID | computegpucluster-e00ge725pvdv7gyq28 |
