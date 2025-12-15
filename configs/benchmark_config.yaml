@@ -1,0 +1,129 @@
+# configs/benchmark_config.yaml
+# Configuration for GPU Cluster Acceptance Testing
+
+# =============================================================================
+# General Benchmark Settings
+# =============================================================================
+benchmark:
+  # Number of iterations for each benchmark
+  iterations: 100
+  
+  # Warmup iterations (excluded from timing)
+  warmup_iterations: 10
+  
+  # Output format: json, text, both
+  output_format: both
+  
+  # Save detailed results to file
+  save_results: true
+  results_dir: /tmp/benchmark_results
+
+# =============================================================================
+# GPU Health Check Configuration
+# =============================================================================
+gpu_health:
+  enabled: true
+  
+  # Minimum GPU memory required (GB)
+  min_memory_gb: 40
+  
+  # Run basic computation test
+  run_compute_test: true
+
+# =============================================================================
+# Matrix Multiplication Benchmark
+# =============================================================================
+matmul:
+  enabled: true
+  
+  # Matrix sizes to test
+  sizes:
+    - 4096
+    - 8192
+    - 16384
+  
+  # Data type for operations
+  dtype: bfloat16  # Options: float32, float16, bfloat16
+  
+  # Minimum expected TFLOPS (H100 should achieve 900+)
+  min_tflops: 100
+
+# =============================================================================
+# Memory Bandwidth Benchmark
+# =============================================================================
+memory_bandwidth:
+  enabled: true
+  
+  # Size of data to transfer (GB)
+  size_gb: 1.0
+  
+  # Minimum expected bandwidth (TB/s)
+  min_bandwidth_tbps: 1.0
+
+# =============================================================================
+# NCCL Collective Operations Benchmark
+# =============================================================================
+nccl:
+  enabled: true
+  
+  # Operations to benchmark
+  operations:
+    - all_reduce
+    - all_gather
+    - reduce_scatter
+  
+  # Data sizes to test (MB)
+  sizes_mb:
+    - 1
+    - 10
+    - 100
+    - 1000
+  
+  # Minimum expected bandwidth (GB/s)
+  min_bandwidth_gbps: 10
+
+# =============================================================================
+# Training Benchmark
+# =============================================================================
+training:
+  enabled: true
+  
+  # Model configuration
+  model: gpt2_small  # Options: gpt2_small, gpt2_medium
+  
+  # Training parameters
+  batch_size: 8
+  seq_length: 512
+  
+  # Number of training steps
+  steps: 50
+  warmup_steps: 5
+  
+  # Minimum expected throughput (tokens/second/GPU)
+  min_tokens_per_second_per_gpu: 500
+
+# =============================================================================
+# Pass/Fail Thresholds
+# =============================================================================
+thresholds:
+  # Overall pass requires all enabled tests to pass
+  require_all_pass: true
+  
+  # Per-test thresholds (override defaults above)
+  matmul_tflops: 100
+  memory_bandwidth_tbps: 1.0
+  nccl_bandwidth_gbps: 10
+  training_tokens_per_second: 500
+
+# =============================================================================
+# Reporting
+# =============================================================================
+reporting:
+  # Print detailed per-GPU results
+  verbose: true
+  
+  # Include raw timing data
+  include_raw_data: false
+  
+  # Generate HTML report
+  html_report: false
