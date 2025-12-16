@@ -1,7 +1,7 @@
 {
   "timestamp": "2025-12-15T14:59:32.329735Z",
   "cluster_info": {
-    "hostname": "computeinstance-e00e9ncccc9zh9nxw2",
+    "hostname": "gpu-node-0",
     "nodes": 2,
     "gpus_per_node": 8,
     "total_gpus": 16,

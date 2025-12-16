@@ -621,7 +621,7 @@ def print_results(results: Dict[str, Any]):
     for name, result in results["results"].items():
         if isinstance(result, dict) and "status" in result:
             status = result["status"]
-            status_symbol = "✓" if status == "PASS" else "✗" if status == "FAIL" else "○"
+            status_symbol = "[PASS]" if status == "PASS" else "[FAIL]" if status == "FAIL" else "[SKIP]"
             
             if "metric_value" in result:
                 print(f"  {status_symbol} {name}: {result['metric_value']} {result.get('metric_unit', '')}")
@@ -630,7 +630,7 @@ def print_results(results: Dict[str, Any]):
     
     print("-" * 70)
     overall = results["overall_status"]
-    print(f"\nOverall Status: {'✓ PASS' if overall == 'PASS' else '✗ FAIL'}")
+    print(f"\nOverall Status: {'PASS' if overall == 'PASS' else 'FAIL'}")
     print("=" * 70 + "\n")
 
 
