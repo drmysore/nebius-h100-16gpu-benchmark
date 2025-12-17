@@ -267,10 +267,18 @@ def load_model_and_tokenizer(config: Dict[str, Any]):
         **model_kwargs,
     )
     
+    # Enable gradient checkpointing BEFORE applying LoRA
+    if config["training"].get("gradient_checkpointing", True):
+        model.gradient_checkpointing_enable(
+            gradient_checkpointing_kwargs=config["training"].get(
+                "gradient_checkpointing_kwargs", {"use_reentrant": False}
+            )
+        )
+
     # Apply LoRA if enabled
     if lora_config.get("enabled", True):
         logger.info("Applying LoRA configuration...")
-        
+
         peft_config = LoraConfig(
             r=lora_config.get("r", 64),
             lora_alpha=lora_config.get("lora_alpha", 128),
@@ -282,17 +290,12 @@ def load_model_and_tokenizer(config: Dict[str, Any]):
             bias=lora_config.get("bias", "none"),
             task_type=TaskType.CAUSAL_LM,
         )
-        
+
         model = get_peft_model(model, peft_config)
         model.print_trainable_parameters()
-    
-    # Enable gradient checkpointing
-    if config["training"].get("gradient_checkpointing", True):
-        model.gradient_checkpointing_enable(
-            gradient_checkpointing_kwargs=config["training"].get(
-                "gradient_checkpointing_kwargs", {"use_reentrant": False}
-            )
-        )
+
+        # Enable input gradients for LoRA + gradient checkpointing compatibility
+        model.enable_input_require_grads()
     
     return model, tokenizer
 

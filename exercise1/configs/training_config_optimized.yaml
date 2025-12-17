@@ -1,13 +1,11 @@
-# training_config.yaml - Training hyperparameters for function calling fine-tuning
+# training_config_optimized.yaml - Optimized training hyperparameters
+# See OPTIMIZATION.md for detailed explanation of changes
 
 # =============================================================================
 # Model Configuration
 # =============================================================================
 model:
-  name: "Qwen/Qwen2-7B-Instruct"  # Using open model (no HF auth required)
-  # Alternatives (require HF auth):
-  # - "meta-llama/Llama-3.1-8B-Instruct"
-  # - "mistralai/Mistral-7B-Instruct-v0.3"
+  name: "Qwen/Qwen2-7B-Instruct"
   torch_dtype: "bfloat16"
   attn_implementation: "flash_attention_2"
   trust_remote_code: true
@@ -17,8 +15,8 @@ model:
 # =============================================================================
 lora:
   enabled: true
-  r: 64                    # LoRA rank
-  lora_alpha: 128          # LoRA alpha
+  r: 64
+  lora_alpha: 128
   lora_dropout: 0.05
   target_modules:
     - "q_proj"
@@ -32,18 +30,18 @@ lora:
   task_type: "CAUSAL_LM"
 
 # =============================================================================
-# Training Parameters
+# Training Parameters - OPTIMIZED
 # =============================================================================
 training:
-  # Batch sizes
-  per_device_train_batch_size: 2
-  per_device_eval_batch_size: 2
-  gradient_accumulation_steps: 4
-  # Effective batch size = 2 * 4 * 16 GPUs = 128
+  # OPTIMIZED: Increased batch size to fill GPU memory
+  per_device_train_batch_size: 4    # Was 2
+  per_device_eval_batch_size: 4     # Was 2
+  gradient_accumulation_steps: 2    # Was 4
+  # Effective batch size = 4 * 2 * 16 GPUs = 128 (same total)
 
-  # Training duration (reduced for demo - increase for full training)
+  # Training duration
   num_train_epochs: 1
-  max_steps: 100  # Demo: 100 steps; set to -1 for full epoch
+  max_steps: 100
 
   # Learning rate
   learning_rate: 2.0e-5
@@ -60,7 +58,7 @@ training:
   fp16: false
   tf32: true
 
-  # Checkpointing
+  # Checkpointing - keep enabled for memory efficiency
   gradient_checkpointing: true
   gradient_checkpointing_kwargs:
     use_reentrant: false
@@ -70,7 +68,6 @@ training:
   logging_first_step: true
   report_to:
     - "tensorboard"
-    # - "wandb"  # Uncomment if using W&B
 
   # Saving
   save_strategy: "steps"
@@ -82,10 +79,11 @@ training:
   eval_strategy: "steps"
   eval_steps: 50
 
-  # Misc
+  # OPTIMIZED: Increased data loading parallelism
   seed: 42
-  dataloader_num_workers: 4
+  dataloader_num_workers: 8         # Was 4
   dataloader_pin_memory: true
+  dataloader_prefetch_factor: 4     # New
   remove_unused_columns: true
   ddp_find_unused_parameters: false
 
@@ -93,58 +91,41 @@ training:
 # Data Configuration
 # =============================================================================
 data:
-  train_file: null  # Will load from HuggingFace
+  train_file: null
   validation_file: null
   test_file: null
-  
-  # Sequence length
   max_seq_length: 4096
-  
-  # Packing (combine short sequences)
   packing: true
-  
-  # Dataset processing
   preprocessing_num_workers: 8
 
 # =============================================================================
 # Output Configuration
 # =============================================================================
 output:
-  output_dir: "/home/supreethlab/training/checkpoints_16gpu"
-  logging_dir: "/home/supreethlab/training/logs_16gpu"
+  output_dir: "/home/supreethlab/training/checkpoints_optimized"
+  logging_dir: "/home/supreethlab/training/logs_optimized"
   overwrite_output_dir: false
-  resume_from_checkpoint: null  # Set to checkpoint path to resume
+  resume_from_checkpoint: null
 
 # =============================================================================
-# Distributed Training Configuration
+# Distributed Training Configuration - OPTIMIZED
 # =============================================================================
 distributed:
-  # DeepSpeed (disabled for single-GPU demo; enable for multi-node)
-  deepspeed: null  # "/home/supreethlab/nebius-assignment/exercise1/configs/ds_config_zero3.json"
-  
-  # Alternative: FSDP (uncomment to use instead of DeepSpeed)
-  # fsdp: "full_shard auto_wrap"
-  # fsdp_config:
-  #   fsdp_offload_params: false
-  #   fsdp_state_dict_type: "SHARDED_STATE_DICT"
-  #   fsdp_transformer_layer_cls_to_wrap: "LlamaDecoderLayer"
-
-  # Communication backend
+  # OPTIMIZED: Enable DeepSpeed ZeRO-3 for multi-node efficiency
+  deepspeed: "configs/ds_config_zero3_optimized.json"
   ddp_backend: "nccl"
-  
-  # Local rank handling
-  local_rank: -1  # Set by launcher
+  local_rank: -1
 
 # =============================================================================
-# Weights & Biases (optional)
+# Weights and Biases (optional)
 # =============================================================================
 wandb:
   enabled: false
   project: "llm-function-calling"
-  entity: null  # Your W&B username/team
-  name: null    # Run name (auto-generated if null)
+  entity: null
+  name: null
   tags:
     - "function-calling"
-    - "llama-3.1"
+    - "qwen2"
     - "lora"
-    - "nebius-poc"
+    - "optimized"

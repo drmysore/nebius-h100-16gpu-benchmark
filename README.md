@@ -109,16 +109,16 @@ srun --jobid=<JOB_ID> nvidia-smi -l 5
 For debugging or manual execution across nodes:
 
 ```bash
-# On Node 0 (master)
+# On Node 0 (master) - 10.2.0.129
 cd exercise1
 torchrun --nnodes=2 --nproc_per_node=8 --node_rank=0 \
-    --master_addr=<MASTER_PRIVATE_IP> --master_port=29500 \
+    --master_addr=10.2.0.129 --master_port=29500 \
     scripts/train_function_calling.py --config configs/training_config.yaml
 
-# On Node 1 (worker)
+# On Node 1 (worker) - 10.2.0.0
 cd exercise1
 torchrun --nnodes=2 --nproc_per_node=8 --node_rank=1 \
-    --master_addr=<MASTER_PRIVATE_IP> --master_port=29500 \
+    --master_addr=10.2.0.129 --master_port=29500 \
     scripts/train_function_calling.py --config configs/training_config.yaml
 ```
 
@@ -180,10 +180,10 @@ Comprehensive benchmark suite for validating multi-node GPU cluster performance.
 
 ### Multi-Node Configuration
 
-| Node | Role | Ranks |
-|------|------|-------|
-| gpu-node-0 | Master | 0-7 |
-| gpu-node-1 | Worker | 8-15 |
+| Node | Role | Hostname | Private IP | Ranks |
+|------|------|----------|------------|-------|
+| Node 0 | Master | computeinstance-e00e9ncccc9zh9nxw2 | 10.2.0.129 | 0-7 |
+| Node 1 | Worker | computeinstance-e00f02hfdpb8fq4167 | 10.2.0.0 | 8-15 |
 
 ### Performance Comparison: 8 GPUs vs 16 GPUs
 
@@ -202,32 +202,40 @@ The multi-node configuration maintains excellent interconnect bandwidth with onl
 # Pull the container image
 docker pull ghcr.io/<your-org>/nebius-h100-16gpu-benchmark:latest
 
-# Multi-node distributed benchmarks require torchrun across nodes
-# On each node:
+# On Node 0 (master) - 10.2.0.129:
 docker run --gpus all --network host \
-    -e MASTER_ADDR=<MASTER_PRIVATE_IP> \
+    -e MASTER_ADDR=10.2.0.129 \
     -e MASTER_PORT=29500 \
     ghcr.io/<your-org>/nebius-h100-16gpu-benchmark:latest \
-    torchrun --nnodes=2 --nproc_per_node=8 --node_rank=<NODE_RANK> \
-    --master_addr=<MASTER_PRIVATE_IP> --master_port=29500 \
+    torchrun --nnodes=2 --nproc_per_node=8 --node_rank=0 \
+    --master_addr=10.2.0.129 --master_port=29500 \
+    /app/scripts/benchmark.py --mode distributed
+
+# On Node 1 (worker) - 10.2.0.0:
+docker run --gpus all --network host \
+    -e MASTER_ADDR=10.2.0.129 \
+    -e MASTER_PORT=29500 \
+    ghcr.io/<your-org>/nebius-h100-16gpu-benchmark:latest \
+    torchrun --nnodes=2 --nproc_per_node=8 --node_rank=1 \
+    --master_addr=10.2.0.129 --master_port=29500 \
     /app/scripts/benchmark.py --mode distributed
 ```
 
 #### Running Directly
 
-On Node 0 (master):
+On Node 0 (master) - 10.2.0.129:
 ```bash
 cd exercise2
 torchrun --nnodes=2 --nproc_per_node=8 --node_rank=0 \
-    --master_addr=<MASTER_PRIVATE_IP> --master_port=29500 \
+    --master_addr=10.2.0.129 --master_port=29500 \
     scripts/benchmark.py --mode distributed --output results/benchmark_16gpu.json
 ```
 
-On Node 1 (worker):
+On Node 1 (worker) - 10.2.0.0:
 ```bash
 cd exercise2
 torchrun --nnodes=2 --nproc_per_node=8 --node_rank=1 \
-    --master_addr=<MASTER_PRIVATE_IP> --master_port=29500 \
+    --master_addr=10.2.0.129 --master_port=29500 \
     scripts/benchmark.py --mode distributed
 ```
 
